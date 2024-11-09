@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Source Kanban Board</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .app-container {
+      max-width: 1600px;
+      margin: 0 auto;
+          overflow-x: auto; /* This will handle horizontal scrolling */
+    overflow-y: visible; /* Allow tooltips to be visible */
+    padding-top: 20px; /* Add some space for tooltips at the top */
+    }
+
+    .board-header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-right:8%;
+    }
+
+    .filter-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .board {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      overflow: visible;
+      padding: 20px 0;
+      min-height: calc(100vh - 200px);
+    }
+
+.column {
+    background: #f0f0f0;
+    padding: 15px;
+    border-radius: 8px;
+    min-width: 300px;
+    max-width: 300px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 2px solid transparent; /* Add this line */
+    transition: border-color 0.2s, background-color 0.2s; /* Add this line */
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+}
+    .column.dragging {
+      opacity: 0.5;
+      background-color: #e8e8e8;
+      cursor: move;
+    }
+
+.column.drag-over {
+    border: 2px dashed #666;
+    background-color: #f8f8f8;
+}
+.column:not(.dragging):not(.drag-over) {
+    opacity: 1;
+}
+.card.dragging {
+    opacity: 0.5;
+    cursor: move;
+}
+
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .column-header h2 {
+      margin: 0;
+      font-size: 1.1em;
+      color: #333;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      position: relative;
+      overflow: visible;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+/* Add more space for card members specifically */
+.card .member-item {
+    position: relative;
+    display: inline-block;
+    margin-right: 8px;  /* Increased spacing between members */
+    margin-bottom: 5px; /* Added bottom spacing */
+}
+    .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    margin: -5px -5px 10px -5px;
+    }
+
+    .card-title {
+      font-weight: bold;
+      margin: 0;
+      padding: 5px;
+      flex-grow: 1;
+    }
+
+    .card-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;           /* Consistent gap between members */
+    margin-top: 15px;   /* More space at top */
+    margin-bottom:10px;
+    padding: 8px;       /* Increased padding */
+    background: #f8f8f8;
+    border-radius: 4px;
+    position: relative; /* Added for better positioning context */
+    min-height: 40px;  /* Ensure minimum height for tooltips */
+     overflow: visible;
+}
+
+    .card-member {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s;
+    border: 2px solid white;
+    position: relative;
+    z-index: 1;
+    display: block;  /* Added for better positioning */
+}
+    .card-member:hover {
+      transform: scale(1.1);
+    }
+    .cards {
+    overflow-y: auto;
+    overflow-x: visible;
+    flex-grow: 1;
+    scroll-behavior: smooth;
+    will-change: transform;
+    -webkit-overflow-scrolling: touch;
+}
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .user-list {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+      padding: 10px;
+      background: #f8f8f8;
+      border-radius: 8px;
+    }
+
+    .activity-log {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    .button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    .button:hover {
+      background: #45a049;
+    }
+
+    .button.secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .button.secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .member-selector {
+      position: absolute;
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+      min-width: 200px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .member-option {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .member-option:hover {
+      background: #f5f5f5;
+    }
+
+    .member-option img {
+      margin-right: 10px;
+    }
+
+    .user-form {
+      background: white;
+      padding: 60px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1001;
+      display: none;
+      width:30%;
+    }
+
+    .user-form input {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: none;
+    }
+
+    .card-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      margin-right: 5px;
+      background: #e0e0e0;
+      color: #666;
+    }
+
+    .delete-btn {
+      background: #e8e8e8;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+
+    .delete-btn:hover {
+    background: #ff0000;
+    transform: scale(1.1);
+    }
+
+    .add-card {
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 4px;
+      text-align: center;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.2s;
+    }
+
+    .add-card:hover {
+      background: white;
+    }
+
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .board {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .column {
+        max-width: none;
+      }
+      
+    }
+/* Add these new styles at the end of your existing styles */
+.add-column-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 20px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.add-column-button:hover {
+    background: #45a049;
+}
+
+.card-description {
+    margin: 10px 0;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-height: 100px;
+}
+
+.tox-tinymce {
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+}
+.priority-selector {
+    display: flex;
+    align-items: center;
+    padding: 5px 0;
+    margin: 5px 0;
+    gap: 10px;
+}
+
+.priority-selector select {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    cursor: pointer;
+}
+
+.priority-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+    display: inline-block;
+}
+
+
+#confirmModal {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
+    display: none;
+    min-width: 300px;
+    text-align: center;
+}
+
+#confirmModal h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+#confirmModal .button {
+    margin: 10px 5px;
+}
+
+#confirmMessage {
+    margin: 20px 0;
+    color: #666;
+}
+.member-item {
+    position: relative;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.card-member {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s;
+    border: 2px solid white;
+    position: relative;
+    z-index: 1;
+}
+
+.card-member:hover {
+    transform: scale(1.1);
+}
+
+.remove-member-btn {
+    position: absolute;
+    top: -8px;          /* Adjusted position */
+    right: -8px;        /* Adjusted position */
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ff4444;
+    color: white;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    z-index: 2;
+}
+
+.member-item:hover .remove-member-btn {
+    display: flex;
+}
+
+.remove-member-btn:hover {
+    background: #ff0000;
+    transform: scale(1.1);
+}
+.board-member-item {
+    position: relative;
+    display: inline-block;
+    margin-right: 5px;
+}
+.member-item:hover .tooltip,
+.board-member-item:hover .tooltip {
+    opacity: 1;
+}
+.board-remove-btn {
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    background: #ff4444;
+    border: 2px solid white;
+}
+
+.user-list .user-avatar {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.user-list .user-avatar:hover {
+    transform: scale(1.1);
+}
+
+.board-member-item:hover .board-remove-btn {
+    display: flex;
+}
+/* Add these tooltip styles */
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    margin-left: 12px;
+    margin-top: -10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.2s;
+    /* Increased space from avatar */
+    top: -45px; /* Increased from -40px */
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 4px 4px 0 4px;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+}
+
+.card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-grow: 1;
+}
+
+.collapse-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.collapse-btn:hover {
+    background: #f0f0f0;
+    border-radius: 50%;
+}
+
+.chevron-icon {
+    transition: transform 0.2s ease;
+}
+
+.card.collapsed .chevron-icon {
+    transform: rotate(-90deg);
+}
+
+.card-collapsible {
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+    max-height: 1000px;
+    opacity: 1;
+ overflow: visible;
+}
+
+.card.collapsed .card-collapsible {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+.user-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.user-list-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9em;
+}
+/* Add these at the END of your CSS file */
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #ffffff;
+    --card-bg: #2d2d2d;
+    --column-bg: #252525;
+    --border-color: #404040;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --hover-bg: #333333;
+    --secondary-bg: #3d3d3d;
+    --secondary-text-color: #cccccc;
+    --secondary-active-bg: #4a4a4a;
+    --card-members-active-bg: #555555;
+    --priority-low-bg: #1b3a1e;
+    --priority-medium-bg: #3d3012;
+    --priority-high-bg: #3d1f1f;
+    --priority-low-color: #4caf50;
+    --priority-medium-color: #ff9800;
+    --priority-high-color: #f44336;
+    --card-members-bg: #3d3d3d;
+    --chevron-icon-color: #cccccc;
+}
+[data-theme="dark"] body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .board-header,
+[data-theme="dark"] .column,
+[data-theme="dark"] .card {
+    background: var(--card-bg);
+    box-shadow: 0 2px 4px var(--shadow-color);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .column-header h2 {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .add-column-button {
+    background: var(--secondary-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .add-column-button:hover {
+    background: var(--hover-bg);
+}
+
+[data-theme="dark"] .button.secondary {
+    background: var(--secondary-bg);
+    color: var(--secondary-text-color);
+}
+
+[data-theme="dark"] .button.secondary:hover {
+    background: var(--hover-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .button.secondary:active {
+    background: var(--secondary-active-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .card-members .button.secondary:active {
+    background: var(--card-members-active-bg);
+}
+
+[data-theme="dark"] .chevron-icon {
+    stroke: var(--chevron-icon-color);
+}
+
+[data-theme="dark"] .add-card {
+    background: var(--secondary-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .add-card:hover {
+    background: var(--hover-bg);
+}
+
+[data-theme="dark"] .delete-btn {
+    background: var(--secondary-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .delete-btn:hover {
+    background: #ff0000;
+}
+
+[data-theme="dark"] .user-list {
+    background: var(--secondary-bg);
+    border-radius: 8px;
+}
+
+[data-theme="dark"] .user-list .user-avatar {
+    border-color: var(--card-bg);
+}
+
+[data-theme="dark"] .member-selector {
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .member-option:hover {
+    background: var(--hover-bg);
+}
+
+[data-theme="dark"] .card-members {
+    background: var(--card-members-bg);
+    border-radius: 4px;
+}
+
+[data-theme="dark"] .card-member {
+    border-color: var(--card-bg);
+}
+
+[data-theme="dark"] .tooltip {
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--bg-color);
+}
+
+[data-theme="dark"] .tooltip::before {
+    border-color: rgba(255, 255, 255, 0.8) transparent transparent transparent;
+}
+
+[data-theme="dark"] .collapse-btn:hover {
+    background: var(--hover-bg);
+}
+
+[data-theme="dark"] .user-list-label {
+    color: var(--text-color);
+}
+
+[data-theme="light"] {
+    --bg-color: #f5f5f5;
+    --text-color: #333333;
+    --card-bg: #ffffff;
+    --column-bg: #f0f0f0;
+    --border-color: #dddddd;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --hover-bg: #f8f8f8;
+    --secondary-bg: #e9e9e9;
+    --priority-low-bg: #e8f5e9;
+    --priority-medium-bg: #fff3e0;
+    --priority-high-bg: #ffe6e6;
+    --priority-low-color: #1b5e20;
+    --priority-medium-color: #996300;
+    --priority-high-color: #cc0000;
+}
+
+/* Add the toggle switch styles */
+.theme-switch-wrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    z-index: 100;
+}
+
+.theme-switch {
+    display: inline-block;
+    height: 34px;
+    position: relative;
+    width: 60px;
+}
+
+.theme-switch input {
+    display: none;
+}
+
+.slider {
+    background-color: #ccc;
+    bottom: 0;
+    cursor: pointer;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transition: .4s;
+}
+
+.slider:before {
+    background-color: #fff;
+    bottom: 4px;
+    content: "";
+    height: 26px;
+    left: 4px;
+    position: absolute;
+    transition: .4s;
+    width: 26px;
+}
+
+input:checked + .slider {
+    background-color: #66bb6a;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+.slider .sun,
+.slider .moon {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 7px;
+    transition: .4s;
+    stroke: white;
+}
+
+.slider .sun {
+    left: 4px;
+    opacity: 1;
+}
+
+.slider .moon {
+    right: 4px;
+    opacity: 0;
+}
+
+input:checked + .slider .sun {
+    opacity: 0;
+}
+
+input:checked + .slider .moon {
+    opacity: 1;
+}
+
+/* Add new priority styles using CSS variables */
+.priority-low {
+    background-color: var(--priority-low-bg);
+    color: var(--priority-low-color);
+    border-color: var(--priority-low-color);
+}
+
+.priority-medium {
+    background-color: var(--priority-medium-bg);
+    color: var(--priority-medium-color);
+    border-color: var(--priority-medium-color);
+}
+
+.priority-high {
+    background-color: var(--priority-high-bg);
+    color: var(--priority-high-color);
+    border-color: var(--priority-high-color);
+}
+
+/* Dark mode component styles */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.card, .column, .board-header {
+    background: var(--card-bg);
+    box-shadow: 0 2px 4px var(--shadow-color);
+    border: 1px solid var(--border-color);
+}
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Board Header -->
+    <div class="board-header">
+        <div class="theme-switch-wrapper">
+        <label class="theme-switch" for="checkbox">
+            <input type="checkbox" id="checkbox" />
+            <div class="slider round">
+                <svg class="sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                    </path>
+                </svg>
+                <svg class="moon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+                </svg>
+            </div>
+        </label>
+    </div>
+        <div><h2>Members Area</h2>
+        <p>From here you can add members and filter the members works. Avaters are showing the members in this board.</p></div>
+      <div class="controls">
+        <div class="filter-controls">
+            
+          <select id="memberFilter" onchange="filterByMember(this.value)">
+            <option value="">Filter by member</option>
+          </select>
+          <button class="button" onclick="toggleUserForm()">Add Member</button>
+          <button class="button secondary" onclick="clearFilters()">Clear Filters</button>
+        </div>
+        
+        <div class="user-list-container">
+    <label class="user-list-label">Active Members</label>
+    <div class="user-list" id="userList"></div>
+</div>
+      </div>
+      <div><h3>Activity Log Counts</h3></div>
+      <div class="activity-log" id="activityLog">
+        <!-- Recent activity will be shown here -->
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="board" id="board">
+      <!-- Columns will be rendered here -->
+    </div>
+    <!-- Add this button right after the board div -->
+<button class="add-column-button" onclick="addColumn()">+ Add New Column</button>
+  </div>
+<!-- Add this if it's not already in your HTML confirmModal -->
+<div class="modal-backdrop" id="modalBackdrop"></div>
+<div class="user-form" id="confirmModal">
+    <h3>Confirm Delete</h3>
+    <p id="confirmMessage"></p>
+    <button class="button" onclick="confirmDelete()">Yes</button>
+    <button class="button secondary" onclick="closeConfirmModal()">No</button>
+</div>
+
+  <!-- User Form Modal -->
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="user-form" id="userForm">
+    <h3>Add New User</h3>
+    <input type="text" id="userName" placeholder="Name" required>
+    <input type="email" id="userEmail" placeholder="Email" required>
+    <input type="text" id="userDesignation" placeholder="Designation" required>
+    <button class="button" onclick="addUser()">Save User</button>
+    <button class="button secondary" onclick="toggleUserForm()">Cancel</button>
+  </div>
+
+  <!-- Member Selector -->
+  <div class="member-selector" id="memberSelector"></div>
+
+  <script>
+      function initTheme() {
+    const toggleSwitch = document.querySelector('#checkbox');
+    const currentTheme = localStorage.getItem('theme');
+
+    if (currentTheme) {
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        if (currentTheme === 'dark') {
+            toggleSwitch.checked = true;
+        }
+    }
+
+    function switchTheme(e) {
+        if (e.target.checked) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
+        }
+    }
+
+    toggleSwitch.addEventListener('change', switchTheme, false);
+}
+
+  // State Management
+let users = [];
+let currentCard = null;
+let activities = [];
+let columnCount = 0;
+let draggedColumn = null;
+
+// Add storage keys here
+const STORAGE_KEYS = {
+    COLUMNS: 'kanban_columns',
+    CARDS: 'kanban_cards',
+    USERS: 'kanban_users',
+    ACTIVITIES: 'kanban_activities'
+};
+// Add these storage functions
+function saveToLocalStorage() {
+    // Save columns
+    const columns = Array.from(document.querySelectorAll('.column')).map(column => ({
+        id: column.id,
+        title: column.querySelector('h2').textContent
+    }));
+    localStorage.setItem(STORAGE_KEYS.COLUMNS, JSON.stringify(columns));
+
+    // Save cards
+    const cards = Array.from(document.querySelectorAll('.card')).map(card => ({
+        id: card.id,
+        columnId: card.closest('.column').id,
+        title: card.querySelector('.card-title').textContent,
+        description: card.querySelector('.card-description').innerHTML,
+        priority: card.getAttribute('data-priority') || 'low',
+        members: Array.from(card.cardMembers || new Set())
+    }));
+    localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
+
+    // Save users
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    // Save activities
+    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(activities));
+}
+
+function loadFromLocalStorage() {
+    try {
+        // Load users
+        const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+        if (savedUsers) {
+            users = JSON.parse(savedUsers);
+            updateUserList();
+            updateMemberFilter();
+        }
+
+        // Load activities
+        const savedActivities = localStorage.getItem(STORAGE_KEYS.ACTIVITIES);
+        if (savedActivities) {
+            activities = JSON.parse(savedActivities);
+            updateActivityLog();
+        }
+
+        // Load columns
+        const savedColumns = localStorage.getItem(STORAGE_KEYS.COLUMNS);
+        if (savedColumns) {
+            const board = document.getElementById('board');
+            board.innerHTML = ''; // Clear existing columns
+            const columns = JSON.parse(savedColumns);
+            columns.forEach(column => {
+                const columnDiv = document.createElement('div');
+                columnDiv.className = 'column';
+                columnDiv.id = column.id;
+                columnDiv.setAttribute('draggable', 'true');
+                columnDiv.innerHTML = `
+                    <div class="column-header">
+                        <h2 contenteditable="true">${column.title}</h2>
+                        <button class="delete-btn" onclick="showDeleteConfirmation(this, 'column')">×</button>
+                    </div>
+                    <div class="cards"></div>
+                    <div class="add-card" onclick="addCard(${column.id.replace('column-', '')})">+ Add New Task</div>
+                `;
+                board.appendChild(columnDiv);
+                initializeColumnDragAndDrop(columnDiv);
+            });
+            // Update column count
+            columnCount = columns.length;
+        }
+
+        // Load cards
+        const savedCards = localStorage.getItem(STORAGE_KEYS.CARDS);
+        if (savedCards) {
+            JSON.parse(savedCards).forEach(cardData => {
+                const column = document.getElementById(cardData.columnId);
+                if (column) {
+                    addCard(
+                        cardData.columnId.replace('column-', ''),
+                        cardData.title,
+                        cardData.description,
+                        cardData.priority
+                    );
+                    const card = column.querySelector('.card:last-child');
+                    if (card) {
+                        card.id = cardData.id;
+                        card.cardMembers = new Set(cardData.members);
+                        updateCardMembers(card);
+                    }
+                }
+            });
+        }
+// After loading all cards, sort each column
+    document.querySelectorAll('.column').forEach(column => {
+        sortCardsByPriority(column);
+    });
+        return true;
+    } catch (error) {
+        console.error('Error loading data:', error);
+        return false;
+    }
+}
+
+ let elementToDelete = null;
+    let deleteType = '';
+    let cardBatch = [];
+let isBatchScheduled = false;
+// Add these utility functions next
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+function initializeVirtualScrolling() {
+    const columns = document.querySelectorAll('.column');
+    columns.forEach(column => {
+        const cardsContainer = column.querySelector('.cards');
+        let isLoading = false;
+        
+        cardsContainer.addEventListener('scroll', debounce(function() {
+            if (isLoading) return;
+            
+            const scrollHeight = this.scrollHeight;
+            const scrollTop = this.scrollTop;
+            const clientHeight = this.clientHeight;
+            
+            if (scrollHeight - scrollTop - clientHeight < 100) {
+                isLoading = true;
+                loadMoreCards(column).then(() => {
+                    isLoading = false;
+                });
+            }
+        }, 150));
+    });
+}
+
+function processBatch() {
+    if (cardBatch.length === 0) {
+        isBatchScheduled = false;
+        return;
+    }
+
+    const cardsByColumn = {};
+    cardBatch.forEach(cardData => {
+        if (!cardsByColumn[cardData.columnId]) {
+            cardsByColumn[cardData.columnId] = [];
+        }
+        cardsByColumn[cardData.columnId].push(cardData);
+    });
+
+    Object.entries(cardsByColumn).forEach(([columnId, cards]) => {
+        const column = document.getElementById(`column-${columnId}`);
+        if (!column) return;
+
+        const fragment = document.createDocumentFragment();
+        cards.forEach(cardData => {
+            const card = createCard(cardData);
+            fragment.appendChild(card);
+        });
+
+        const cardsContainer = column.querySelector('.cards');
+        cardsContainer.appendChild(fragment);
+    });
+
+    cardBatch = [];
+    isBatchScheduled = false;
+}
+
+function showDeleteConfirmation(element, type) {
+    elementToDelete = {
+        type: type,
+        element: element.closest(type === 'card' ? '.card' : '.column')
+    };
+    
+    const modal = document.getElementById('confirmModal');
+    const message = document.getElementById('confirmMessage');
+    
+    let title = '';
+    if (type === 'card') {
+        title = elementToDelete.element.querySelector('.card-title').textContent;
+    } else {
+        title = elementToDelete.element.querySelector('h2').textContent;
+    }
+    
+    message.textContent = `Are you sure you want to delete this ${type} "${title}"?`;
+    
+    modal.style.display = 'block';
+    document.getElementById('modalBackdrop').style.display = 'block';
+}
+
+function confirmDelete() {
+    if (!elementToDelete) return;
+    
+    if (elementToDelete.type === 'member') {
+        const card = document.getElementById(elementToDelete.cardId);
+        if (card && card.cardMembers) {
+            card.cardMembers.delete(elementToDelete.userId);
+            updateCardMembers(card);
+            logActivity(`${elementToDelete.userName} removed from card "${elementToDelete.cardTitle}"`);
+            applyFilters();
+        }
+    } else if (elementToDelete.type === 'board-member') {
+        users = users.filter(user => user.id !== elementToDelete.userId);
+        
+        document.querySelectorAll('.card').forEach(card => {
+            if (card.cardMembers && card.cardMembers.has(elementToDelete.userId)) {
+                card.cardMembers.delete(elementToDelete.userId);
+                updateCardMembers(card);
+            }
+        });
+        
+        updateUserList();
+        updateMemberFilter();
+        logActivity(`${elementToDelete.userName} (${elementToDelete.designation}) was removed from the board`);
+    } else if (elementToDelete.type === 'card') {
+        const title = elementToDelete.element.querySelector('.card-title').textContent;
+        cleanupCard(elementToDelete.element);
+        elementToDelete.element.remove();
+        logActivity(`Card "${title}" was deleted`);
+    } else if (elementToDelete.type === 'column') {
+        const title = elementToDelete.element.querySelector('h2').textContent;
+        const cards = elementToDelete.element.querySelectorAll('.card');
+        cards.forEach(card => cleanupCard(card));
+        elementToDelete.element.remove();
+        logActivity(`Column "${title}" was deleted`);
+    }
+    
+    closeConfirmModal();
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+    const backdrop = document.getElementById('modalBackdrop');
+    modal.style.display = 'none';
+    backdrop.style.display = 'none';
+    elementToDelete = null;
+}
+function cleanupCard(card) {
+    card.removeEventListener('dragstart', dragStart);
+    card.removeEventListener('dragend', dragEnd);
+    
+    const editor = card.querySelector('.card-description');
+    if (editor && editor.id) {
+        tinymce.execCommand('mceRemoveEditor', true, editor.id);
+    }
+    
+    if (card.cardMembers) {
+        card.cardMembers.clear();
+    }
+}
+    // Add this function right after the variables
+function initializeEditor(elementId) {
+    tinymce.init({
+        selector: `#${elementId}`,
+        inline: true,
+        menubar: false,
+        plugins: [
+            'advlist', 'autolink', 'lists', 'link', 'charmap', 'preview',
+            'searchreplace', 'visualblocks', 'code', 'fullscreen',
+            'insertdatetime', 'table', 'code', 'help', 'wordcount'
+        ],
+        toolbar: 'bold italic | bullist numlist | link | removeformat',
+        content_style: 'body { font-family: Arial, sans-serif; }',
+        setup: function(editor) {
+            editor.on('focus', function() {
+                const card = editor.getElement().closest('.card');
+                if (card) {
+                    card.setAttribute('draggable', 'false');
+                }
+            });
+            editor.on('blur', function() {
+                const card = editor.getElement().closest('.card');
+                if (card) {
+                    card.setAttribute('draggable', 'true');
+                }
+            });
+        }
+    });
+}
+
+
+function createColumn(column) {
+    const columnDiv = document.createElement('div');
+    columnDiv.className = 'column';
+    columnDiv.id = `column-${column.id}`;
+    columnDiv.setAttribute('draggable', 'true');
+
+    columnDiv.innerHTML = `
+        <div class="column-header">
+            <h2 contenteditable="true">${column.title}</h2>
+            <button class="delete-btn" onclick="showDeleteConfirmation(this, 'column')">×</button>
+        </div>
+        <div class="cards"></div>
+        <div class="add-card" onclick="addCard(${column.id})">+ Add New Task</div>
+    `;
+
+    initializeColumnDragAndDrop(columnDiv);
+    return columnDiv;
+}
+
+    // User Management
+    function addUser() {
+      const name = document.getElementById('userName').value;
+      const email = document.getElementById('userEmail').value;
+      const designation = document.getElementById('userDesignation').value;
+
+      if (!name || !email || !designation) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      const user = {
+        id: Date.now(),
+        name,
+        email,
+        designation,
+        avatarUrl: getGravatarUrl(email)
+      };
+
+      users.push(user);
+      updateUserList();
+      updateMemberFilter();
+      logActivity(`New user ${name} (${designation}) added to the board`);
+      toggleUserForm();
+    }
+
+function updateUserList() {
+    const userList = document.getElementById('userList');
+    userList.innerHTML = users.map(user => `
+        <div class="board-member-item">
+            <img 
+                class="user-avatar" 
+                src="${user.avatarUrl}" 
+                alt="${user.name}"
+                onclick="filterByMember(${user.id})"
+            >
+            <div class="tooltip">
+                ${user.name}<br>${user.designation}
+            </div>
+            <button 
+                class="remove-member-btn board-remove-btn" 
+                onclick="event.stopPropagation(); showBoardMemberRemoveConfirmation(${user.id})"
+                title="Remove ${user.name} from board"
+            >×</button>
+        </div>
+    `).join('');
+}
+// Add these new functions for board member removal
+function showBoardMemberRemoveConfirmation(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+
+    elementToDelete = {
+        type: 'board-member',
+        userId: userId,
+        userName: user.name,
+        designation: user.designation
+    };
+    
+    const modal = document.getElementById('confirmModal');
+    const message = document.getElementById('confirmMessage');
+    
+    message.textContent = `Are you sure you want to remove ${user.name} (${user.designation}) from the board?`;
+    
+    modal.style.display = 'block';
+    document.getElementById('modalBackdrop').style.display = 'block';
+}
+
+    function updateMemberFilter() {
+      const select = document.getElementById('memberFilter');
+      select.innerHTML = `
+        <option value="">Filter by member</option>
+        ${users.map(user => `
+          <option value="${user.id}">${user.name} - ${user.designation}</option>
+        `).join('')}
+      `;
+    }
+
+    // Card Management
+function addCard(columnId, title = 'New Task', description = '', priority = 'low') {
+    const column = document.getElementById(`column-${columnId}`);
+    if (!column) return;
+
+    const cardsContainer = column.querySelector('.cards');
+    const card = document.createElement('div');
+    // Add 'collapsed' class by default
+    card.className = 'card collapsed';
+    card.setAttribute('draggable', 'true');
+
+    const cardId = `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const editorId = `editor-${cardId}`;
+    card.id = cardId;
+    
+    // Ensure priority is set
+    card.setAttribute('data-priority', priority);
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <div class="card-header-left">
+                <button class="collapse-btn" onclick="toggleCardCollapse(this, event)">
+                    <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <h3 class="card-title" contenteditable="true">${title}</h3>
+            </div>
+            <button class="delete-btn" onclick="showDeleteConfirmation(this, 'card')">×</button>
+        </div>
+        <div class="priority-selector">
+            <span>Priority:</span>
+            <select onchange="updatePriority('${cardId}', this.value)" class="priority-select">
+                <option value="high" ${priority === 'high' ? 'selected' : ''}>High</option>
+                <option value="medium" ${priority === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="low" ${priority === 'low' ? 'selected' : ''}>Low</option>
+            </select>
+            <span class="priority-badge priority-${priority}">${priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
+        </div>
+        <div class="card-collapsible">
+            <div class="card-description" id="${editorId}">${description}</div>
+            <div class="card-members"></div>
+            <button class="button secondary" onclick="showMemberSelector('${cardId}')">+ Add Member</button>
+        </div>
+    `;
+
+    card.cardMembers = new Set();
+    card.addEventListener('dragstart', dragStart);
+    card.addEventListener('dragend', dragEnd);
+    cardsContainer.appendChild(card);
+    
+    initializeEditor(editorId);
+    sortCardsByPriority(column);
+    
+    logActivity(`New card "${title}" added to ${column.querySelector('h2').textContent}`);
+    saveToLocalStorage();
+}
+// Add these new functions for priority management
+function updatePriority(cardId, priority) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    
+    // Update the priority attribute
+    card.setAttribute('data-priority', priority);
+    
+    // Update the badge
+    const badge = card.querySelector('.priority-badge');
+    badge.className = `priority-badge priority-${priority}`;
+    badge.textContent = priority.charAt(0).toUpperCase() + priority.slice(1);
+    
+    // Update select element
+    const select = card.querySelector('.priority-select');
+    select.value = priority;
+    
+    // Sort cards in the current column
+    const currentColumn = card.closest('.column');
+    if (currentColumn) {
+        sortCardsByPriority(currentColumn);
+    }
+    
+    logActivity(`Priority updated to ${priority} for card "${card.querySelector('.card-title').textContent}"`);
+}
+
+function sortCardsByPriority(column) {
+    const cardsContainer = column.querySelector('.cards');
+    const cards = Array.from(cardsContainer.getElementsByClassName('card'));
+    
+    // Define priority weights (high priority should be at top)
+    const priorityOrder = {
+        'high': 0,
+        'medium': 1,
+        'low': 2
+    };
+    
+    // Sort cards by priority
+    cards.sort((a, b) => {
+        const priorityA = priorityOrder[a.getAttribute('data-priority') || 'low'];
+        const priorityB = priorityOrder[b.getAttribute('data-priority') || 'low'];
+        return priorityA - priorityB;
+    });
+    
+    // Reappend cards in sorted order
+    cards.forEach(card => {
+        cardsContainer.appendChild(card);
+    });
+
+    // Save the new order
+    saveToLocalStorage();
+}
+
+function showMemberSelector(cardId) {
+    currentCard = document.getElementById(cardId);
+    const selector = document.getElementById('memberSelector');
+    const button = currentCard.querySelector('.button.secondary');
+    
+    const rect = button.getBoundingClientRect();
+    selector.style.top = `${rect.bottom + window.scrollY + 5}px`;
+    selector.style.left = `${rect.left + window.scrollX}px`;
+    
+    selector.innerHTML = users.map(user => `
+        <div class="member-option" onclick="toggleMember('${cardId}', ${user.id})">
+            <img 
+                src="${user.avatarUrl}" 
+                alt="${user.name}"
+                class="user-avatar"
+            >
+            <span>${user.name} - ${user.designation}</span>
+        </div>
+    `).join('');
+    
+    selector.style.display = 'block';
+    document.addEventListener('click', closeMemberSelector);
+}
+
+function toggleMember(cardId, userId) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    
+    const membersContainer = card.querySelector('.card-members');
+    const user = users.find(u => u.id === userId);
+    
+    if (!card.cardMembers) {
+        card.cardMembers = new Set();
+    }
+
+    if (card.cardMembers.has(userId)) {
+        card.cardMembers.delete(userId);
+        logActivity(`${user.name} removed from card "${card.querySelector('.card-title').textContent}"`);
+    } else {
+        card.cardMembers.add(userId);
+        logActivity(`${user.name} added to card "${card.querySelector('.card-title').textContent}"`);
+    }
+
+    updateCardMembers(card);
+    applyFilters();
+}
+
+function updateCardMembers(card) {
+    const membersContainer = card.querySelector('.card-members');
+    membersContainer.innerHTML = Array.from(card.cardMembers)
+        .map(id => {
+            const member = users.find(u => u.id === id);
+            return `
+                <div class="member-item">
+                    <img 
+                        class="card-member" 
+                        src="${member.avatarUrl}" 
+                        alt="${member.name}"
+                        onclick="filterByMember(${id})"
+                    >
+                    <div class="tooltip">
+                        ${member.name}<br>${member.designation}
+                    </div>
+                    <button 
+                        class="remove-member-btn" 
+                        onclick="event.stopPropagation(); showRemoveMemberConfirmation('${card.id}', ${id})"
+                        title="Remove ${member.name}"
+                    >×</button>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+// Add/Update these functions for member removal
+function showRemoveMemberConfirmation(cardId, userId) {
+    const card = document.getElementById(cardId);
+    const user = users.find(u => u.id === userId);
+    if (!card || !user) return;
+
+    elementToDelete = {
+        type: 'member',
+        cardId: cardId,
+        userId: userId,
+        userName: user.name,
+        cardTitle: card.querySelector('.card-title').textContent
+    };
+    
+    const modal = document.getElementById('confirmModal');
+    const message = document.getElementById('confirmMessage');
+    
+    message.textContent = `Are you sure you want to remove ${user.name} from the card "${elementToDelete.cardTitle}"?`;
+    
+    modal.style.display = 'block';
+    document.getElementById('modalBackdrop').style.display = 'block';
+}
+
+    // Activity Logging
+    function logActivity(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      activities.unshift({ message, timestamp });
+      updateActivityLog();
+    }
+
+    function updateActivityLog() {
+      const log = document.getElementById('activityLog');
+      log.innerHTML = activities
+        .slice(0, 5)
+        .map(activity => `
+          <div class="activity-item">
+            ${activity.timestamp}: ${activity.message}
+          </div>
+        `)
+        .join('');
+    }
+
+    // Filtering
+function filterByMember(userId) {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        if (!userId || (card.cardMembers && Array.from(card.cardMembers).includes(Number(userId)))) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+    // Add this after the filterByMember function
+function applyFilters() {
+    const selectedUserId = document.getElementById('memberFilter').value;
+    if (selectedUserId) {
+        filterByMember(selectedUserId);
+    }
+}
+
+    function clearFilters() {
+      document.getElementById('memberFilter').value = '';
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => card.style.display = 'block');
+    }
+    //Column creation functionality
+function addColumn() {
+    columnCount++;
+    const board = document.getElementById('board');
+    const columnId = columnCount;
+    
+    const column = document.createElement('div');
+    column.className = 'column';
+    column.id = `column-${columnId}`;
+    column.setAttribute('draggable', 'true');
+    
+    column.innerHTML = `
+        <div class="column-header">
+            <h2 contenteditable="true">New Column</h2>
+            <button class="delete-btn" onclick="showDeleteConfirmation(this, 'column')">×</button>
+        </div>
+        <div class="cards"></div>
+        <div class="add-card" onclick="addCard(${columnId})">+ Add New Task</div>
+    `;
+
+    board.appendChild(column);
+    initializeColumnDragAndDrop(column);
+    
+    logActivity('New column added to the board');
+}
+
+    // Drag and Drop Functionality
+function initializeColumnDragAndDrop(column) {
+    column.addEventListener('dragstart', handleColumnDragStart);
+    column.addEventListener('dragend', handleColumnDragEnd);
+    column.addEventListener('dragover', handleColumnDragOver);
+    column.addEventListener('drop', handleColumnDrop);
+    column.addEventListener('dragleave', handleColumnDragLeave);
+}
+
+function handleColumnDragStart(e) {
+    if (!e.target.classList.contains('column')) return;
+    draggedColumn = this;
+    this.classList.add('dragging');
+    // Add a small delay to make the drag visual more apparent
+    requestAnimationFrame(() => {
+        this.style.opacity = '0.5';
+    });
+    e.stopPropagation();
+}
+
+function handleColumnDragEnd(e) {
+    if (!e.target.classList.contains('column')) return;
+    
+    draggedColumn = null;
+    this.classList.remove('dragging');
+    this.style.opacity = '1';
+    
+    // Clear any remaining drag states
+    document.querySelectorAll('.column').forEach(column => {
+        column.classList.remove('drag-over');
+        column.style.opacity = '1';
+    });
+    e.stopPropagation();
+}
+
+function handleColumnDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedColumn || this === draggedColumn) return;
+    
+    // Remove drag-over from all other columns
+    document.querySelectorAll('.column').forEach(column => {
+        if (column !== this && column !== draggedColumn) {
+            column.classList.remove('drag-over');
+        }
+    });
+    
+    this.classList.add('drag-over');
+}
+
+function handleColumnDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const relatedTarget = e.relatedTarget;
+    if (!this.contains(relatedTarget)) {
+        this.classList.remove('drag-over');
+    }
+}
+
+function handleColumnDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedColumn || this === draggedColumn) return;
+    
+    // Clear all drag states
+    document.querySelectorAll('.column').forEach(column => {
+        column.classList.remove('drag-over');
+        column.style.opacity = '1';
+    });
+    
+    const allColumns = [...document.querySelectorAll('.column')];
+    const draggedIndex = allColumns.indexOf(draggedColumn);
+    const droppedIndex = allColumns.indexOf(this);
+
+    if (draggedIndex > droppedIndex) {
+        this.parentNode.insertBefore(draggedColumn, this);
+    } else {
+        this.parentNode.insertBefore(draggedColumn, this.nextSibling);
+    }
+    
+    draggedColumn.style.opacity = '1';
+    draggedColumn = null;
+}
+
+    // Card Drag and Drop
+function dragStart(e) {
+    if (!e.target.classList.contains('card')) return;
+    
+    // Store collapse state before drag
+    const card = e.target;
+    card.setAttribute('data-was-collapsed', card.classList.contains('collapsed'));
+    
+    e.dataTransfer.setData('text/plain', card.id);
+    card.classList.add('dragging');
+}
+
+function dragEnd(e) {
+    if (e.target.classList.contains('card')) {
+        const card = e.target;
+        card.classList.remove('dragging');
+        
+        // Restore collapse state after drag
+        if (card.getAttribute('data-was-collapsed') === 'true') {
+            card.classList.add('collapsed');
+        }
+        card.removeAttribute('data-was-collapsed');
+        
+        // Clear any remaining drag-over states
+        document.querySelectorAll('.column').forEach(column => {
+            column.classList.remove('drag-over');
+        });
+    }
+}
+
+function dragOver(e) {
+    e.preventDefault();
+    
+    const column = e.target.closest('.column');
+    const card = e.target.closest('.card');
+    
+    // Only show drag-over effect on columns, not cards
+    if (column && !card) {
+        const draggingCard = document.querySelector('.card.dragging');
+        if (draggingCard && !column.contains(draggingCard)) {
+            column.classList.add('drag-over');
+        }
+    }
+}
+
+function dragLeave(e) {
+    const column = e.target.closest('.column');
+    if (column) {
+        column.classList.remove('drag-over');
+    }
+}
+
+function drop(e) {
+    e.preventDefault();
+    const column = e.target.closest('.column');
+    if (!column) return;
+    
+    column.classList.remove('drag-over');
+    const cardId = e.dataTransfer.getData('text/plain');
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    
+    const cardsContainer = column.querySelector('.cards');
+    cardsContainer.appendChild(card);
+    
+    // Generate new unique ID for the card after moving
+    const newCardId = `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const oldCardId = card.id;
+    card.id = newCardId;
+    
+    // Update all references to the card ID within the card
+    const prioritySelect = card.querySelector('.priority-select');
+    prioritySelect.setAttribute('onchange', `updatePriority('${newCardId}', this.value)`);
+    
+    const memberButton = card.querySelector('.button.secondary');
+    memberButton.setAttribute('onclick', `showMemberSelector('${newCardId}')`);
+    
+    // Transfer card members to the new card ID
+    card.cardMembers = new Set(Array.from(card.cardMembers));
+    
+    // Update member options in the card
+    updateCardMembers(card);
+    
+    // Reinitialize editor after moving the card
+    const editorElement = card.querySelector('.card-description');
+    if (editorElement) {
+        const newEditorId = `editor-${newCardId}`;
+        editorElement.id = newEditorId;
+        tinymce.execCommand('mceRemoveEditor', true, editorElement.id);
+        initializeEditor(newEditorId);
+    }
+    
+    // Ensure card remains collapsed after moving
+    card.classList.add('collapsed');
+    
+    // Sort cards in the new column
+    sortCardsByPriority(column);
+    
+    logActivity(`Card "${card.querySelector('.card-title').textContent}" moved to ${column.querySelector('h2').textContent}`);
+    saveToLocalStorage();
+}
+function toggleCardCollapse(button, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const card = button.closest('.card');
+    card.classList.toggle('collapsed');
+
+    // If card is being expanded, ensure editor is properly initialized
+    if (!card.classList.contains('collapsed')) {
+        const editorElement = card.querySelector('.card-description');
+        if (editorElement && editorElement.id) {
+            tinymce.execCommand('mceRemoveEditor', true, editorElement.id);
+            initializeEditor(editorElement.id);
+        }
+    }
+}
+
+// Also update the initialization of column event listeners
+function initializeBoard() {
+    const board = document.getElementById('board');
+    const columns = [
+        { id: 1, title: 'To Do' },
+        { id: 2, title: 'In Progress' },
+        { id: 3, title: 'Done' }
+    ];
+
+    columns.forEach(column => {
+        const columnElement = createColumn(column);
+        board.appendChild(columnElement);
+    });
+    columnCount = columns.length;
+
+    // Add drag and drop handlers to the board
+    board.addEventListener('dragover', dragOver);
+    board.addEventListener('dragleave', dragLeave);
+    board.addEventListener('drop', drop);
+}
+
+
+
+
+    // Utility Functions
+    function getGravatarUrl(email) {
+      const hash = CryptoJS.MD5(email.trim().toLowerCase());
+      return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=32`;
+    }
+
+    function toggleUserForm() {
+      const form = document.getElementById('userForm');
+      const backdrop = document.getElementById('modalBackdrop');
+      const isVisible = form.style.display === 'block';
+      
+      form.style.display = isVisible ? 'none' : 'block';
+      backdrop.style.display = isVisible ? 'none' : 'block';
+      
+      if (!isVisible) {
+        document.getElementById('userName').value = '';
+        document.getElementById('userEmail').value = '';
+        document.getElementById('userDesignation').value = '';
+      }
+    }
+
+    function closeMemberSelector(e) {
+      const selector = document.getElementById('memberSelector');
+      if (!selector.contains(e.target) && !e.target.matches('.button.secondary')) {
+        selector.style.display = 'none';
+        document.removeEventListener('click', closeMemberSelector);
+      }
+    }
+
+    function deleteCard(cardId) {
+      const card = document.getElementById(`card-${cardId}`);
+      if (card) {
+        logActivity(`Card "${card.querySelector('.card-title').textContent}" was deleted`);
+        card.remove();
+      }
+    }
+
+
+    // Initialize the board
+// Initialize the board
+document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    
+    // Try to load saved data
+    const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+    const savedColumns = localStorage.getItem(STORAGE_KEYS.COLUMNS);
+    
+    if (!savedUsers && !savedColumns) {
+        // If no saved data exists, initialize with default data
+        initializeBoard();
+        columnCount = 3; // Set initial column count
+        
+        // Add sample user
+        const sampleUser = {
+            id: Date.now(),
+            name: 'Demo User',
+            email: 'demo@example.com',
+            designation: 'Team Member',
+            avatarUrl: getGravatarUrl('demo@example.com')
+        };
+        users.push(sampleUser);
+        updateUserList();
+        updateMemberFilter();
+        
+        // Add sample cards
+        addCard(1, 'Welcome Card', '<p>This is a sample card with <strong>rich text</strong> editing. Try formatting this text!</p>', 'high');
+        addCard(1, 'Important Feature', '<p>This needs immediate attention!</p>', 'high');
+        
+        addCard(2, 'In Progress Task', '<p>This task is being worked on. You can add:</p><ul><li>Lists</li><li>Links</li><li>Formatting</li></ul>', 'medium');
+        addCard(2, 'Documentation Update', '<p>Update the user guide with new features.</p>', 'medium');
+        
+        addCard(3, 'Completed Task', '<p>This task has been completed. ✅</p>', 'low');
+        addCard(3, 'Bug Fix', '<p>Minor UI alignment issue fixed.</p>', 'low');
+        
+        // Save initial state
+        saveToLocalStorage();
+    } else {
+        // Load saved data
+        loadFromLocalStorage();
+    }
+
+    // Initialize other features
+    initializeVirtualScrolling();
+    
+    // Set up drag and drop event listeners
+    document.querySelectorAll('.column').forEach(column => {
+        column.addEventListener('dragover', dragOver);
+        column.addEventListener('dragleave', dragLeave);
+        column.addEventListener('drop', drop);
+    });
+});
+// Then add these function overrides and auto-save handlers at the very end
+const originalAddCard = window.addCard;
+window.addCard = function(...args) {
+    const result = originalAddCard.apply(this, args);
+    saveToLocalStorage();
+    return result;
+};
+
+const originalAddColumn = window.addColumn;
+window.addColumn = function(...args) {
+    const result = originalAddColumn.apply(this, args);
+    saveToLocalStorage();
+    return result;
+};
+
+const originalAddUser = window.addUser;
+window.addUser = function(...args) {
+    const result = originalAddUser.apply(this, args);
+    saveToLocalStorage();
+    return result;
+};
+
+// Add auto-save for drag and drop
+document.addEventListener('drop', () => {
+    setTimeout(saveToLocalStorage, 100);
+});
+
+// Add auto-save for content edits
+document.addEventListener('input', (e) => {
+    if (e.target.closest('.card') || e.target.closest('.column')) {
+        debounce(saveToLocalStorage, 500)();
+    }
+});
+  </script>
+</body>
+</html>
